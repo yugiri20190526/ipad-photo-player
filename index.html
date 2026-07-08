@@ -272,6 +272,7 @@ function generateThumb(file) {
         img.onerror = () => res(null);
         img.src = e.target.result;
       };
+      reader.onerror = () => res(null);
       reader.readAsDataURL(file);
     } else if (type.startsWith('video/')) {
       const v = document.createElement('video');
@@ -345,12 +346,28 @@ async function addMedia(file) {
     });
   }
 
+  const record = { name: file.name, blob: file, thumb, type, duration, addedAt: Date.now() };
+  // iPadのIndexedDBは一時的に保存失敗することがあるためリトライする
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 400 * attempt));
+    try {
+      return await putMedia(record);
+    } catch (e) {}
+  }
+  return false;
+}
+
+function putMedia(record) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
+    let tx;
+    try {
+      tx = db.transaction(STORE, 'readwrite');
+    } catch (e) { return reject(e); }
     tx.oncomplete = () => resolve(true);
-    tx.onerror = () => resolve(false);
-    const req = tx.objectStore(STORE).add({ name: file.name, blob: file, thumb, type, duration, addedAt: Date.now() });
-    req.onerror = () => { tx.abort(); };
+    tx.onerror = () => reject(tx.error || new Error('tx error'));
+    tx.onabort = () => reject(tx.error || new Error('tx abort'));
+    const req = tx.objectStore(STORE).add(record);
+    req.onerror = (ev) => { ev.preventDefault(); };
   });
 }
 
@@ -477,13 +494,18 @@ async function handleFileSelect(files) {
   const fill = document.getElementById('progressFill');
   const pct = document.getElementById('progressPct');
 
+  const total = files.length;
   let added = 0;
-  for (let i = 0; i < files.length; i++) {
-    label.textContent = files[i].name;
-    fill.style.width = ((i / files.length) * 100) + '%';
-    pct.textContent = Math.floor((i / files.length) * 100) + '%';
-    const id = await addMedia(files[i]);
-    if (id) added++;
+  for (let i = 0; i < total; i++) {
+    label.textContent = `(${i + 1}/${total}) ${files[i].name}`;
+    fill.style.width = ((i / total) * 100) + '%';
+    pct.textContent = Math.floor((i / total) * 100) + '%';
+    // 1ファイルの処理が固まっても次に進めるようタイムアウトを設ける
+    const ok = await Promise.race([
+      addMedia(files[i]).catch(() => false),
+      new Promise(r => setTimeout(() => r(false), 30000))
+    ]);
+    if (ok) added++;
   }
 
   fill.style.width = '100%';
@@ -493,14 +515,12 @@ async function handleFileSelect(files) {
     getAllMedia().then(list => {
       media = list;
       updateGallery();
-      if (added > 0) {
-        const el = document.getElementById('toast');
-        el.textContent = `${added}件追加しました`;
-        el.classList.add('show');
-        setTimeout(() => el.classList.remove('show'), 2000);
-      }
+      const el = document.getElementById('toast');
+      el.textContent = `${total}件中${added}件追加しました`;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 3000);
     });
-  }, 500);
+  }, 400);
 }
 
 // 初期化
