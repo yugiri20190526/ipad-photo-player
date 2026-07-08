@@ -179,7 +179,7 @@
       追加
     </button>
     <button class="btn btn-danger" id="clearBtn">全削除</button>
-    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-m4v,video/webm" multiple>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-m4v,video/webm" multiple onchange="handleFileSelectEvent(event)">
   </div>
 </div>
 
@@ -599,15 +599,27 @@ function setupEventListeners() {
 }
 
 // 初期化関数
-function initApp() {
-  // ビルドIDを表示
-  const b = document.querySelector('meta[name="build"]');
+// File Input の change イベントハンドラ
+function handleFileSelectEvent(event) {
+  if (event.target.files.length > 0) {
+    handleFileSelect(event.target.files);
+    event.target.value = '';
+  }
+}
+
+// ページロード時に初期化
+function startApp() {
+  // バージョン表示
   const verEl = document.getElementById('ver');
-  if (verEl) {
-    verEl.textContent = (b && b.content) ? b.content : '不明';
+  const buildMeta = document.querySelector('meta[name="build"]');
+  if (verEl && buildMeta && buildMeta.content) {
+    verEl.textContent = buildMeta.content;
   }
 
+  // イベントリスナー設定
   setupEventListeners();
+
+  // DB初期化
   openDB().then(() => {
     getAllMedia().then(list => {
       media = list;
@@ -616,11 +628,11 @@ function initApp() {
   });
 }
 
-// DOMContentLoadedまたは既にロード完了していれば実行
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
+  document.addEventListener('DOMContentLoaded', startApp);
 } else {
-  initApp();
+  // スクリプトが最後に評価される場合は直接実行
+  startApp();
 }
 </script>
 </body>
