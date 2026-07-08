@@ -223,6 +223,8 @@
   </div>
 </div>
 
+<div id="ver" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#555;z-index:999;pointer-events:none;"></div>
+
 <script>
 const DB_NAME = 'photoPlayerDB1', STORE = 'media', DB_VER = 1;
 const THUMB_VER = 1;
@@ -589,6 +591,12 @@ function setupEventListeners() {
     });
   }
 }
+
+// ビルドIDを表示
+(function () {
+  const b = document.querySelector('meta[name="build"]');
+  document.getElementById('ver').textContent = (b && b.content) ? b.content : '不明';
+})();
 
 // 初期化
 document.addEventListener('DOMContentLoaded', () => {
