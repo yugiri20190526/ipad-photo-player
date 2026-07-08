@@ -320,25 +320,21 @@ async function addMedia(file) {
   const type = file.type.startsWith('video/') ? 'video' : 'image';
   let duration = null;
   if (type === 'video') {
-    const v = document.createElement('video');
-    v.src = URL.createObjectURL(file);
     duration = await new Promise(res => {
-      v.addEventListener('loadedmetadata', () => res(v.duration));
-      v.addEventListener('error', () => res(null));
+      const v = document.createElement('video');
+      v.src = URL.createObjectURL(file);
+      const timer = setTimeout(() => res(null), 5000);
+      v.addEventListener('loadedmetadata', () => { clearTimeout(timer); res(v.duration); });
+      v.addEventListener('error', () => { clearTimeout(timer); res(null); });
     });
   }
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 300 * attempt));
-    try {
-      const tx = db.transaction(STORE, 'readwrite');
-      const req = tx.objectStore(STORE).add({ name: file.name, blob: file, thumb, type, duration, addedAt: Date.now() });
-      return await new Promise((res, rej) => {
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => rej(req.error);
-      });
-    } catch (e) {}
-  }
-  return null;
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).add({ name: file.name, blob: file, thumb, type, duration, addedAt: Date.now() });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+    tx.onerror = () => resolve(null);
+  });
 }
 
 function updateGallery() {
@@ -364,9 +360,34 @@ function updateGallery() {
 
 function showDetail(idx) {
   currentDetailIdx = idx;
-  document.getElementById('detailView').classList.add('show');
+  const detail = document.getElementById('detailView');
+  detail.classList.add('show');
   renderDetailMedia();
   updateDetailCounter();
+  setupSwipeHandler();
+}
+
+function setupSwipeHandler() {
+  const detail = document.getElementById('detailView');
+  let touchStartX = 0, touchStartY = 0;
+
+  detail.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  detail.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    const minSwipeDistance = 30;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+      if (diffX > 0) goDetailPrev();
+      else goDetailNext();
+    }
+  }, { passive: true });
 }
 
 function renderDetailMedia() {
@@ -393,7 +414,8 @@ function updateDetailCounter() {
 }
 
 function closeDetail() {
-  document.getElementById('detailView').classList.remove('show');
+  const detail = document.getElementById('detailView');
+  detail.classList.remove('show');
   if (isSlideShowRunning) { isSlideShowRunning = false; if (slideShowTimer) clearInterval(slideShowTimer); }
 }
 
