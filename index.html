@@ -547,12 +547,8 @@ function setupEventListeners() {
 
   if (addBtn) {
     addBtn.addEventListener('click', () => {
-      console.log('Add button clicked');
       if (fileInput) {
-        console.log('Clicking file input');
         fileInput.click();
-      } else {
-        console.log('File input not found');
       }
     });
   }
@@ -626,15 +622,6 @@ if (document.readyState === 'loading') {
 } else {
   initApp();
 }
-
-// ビルドIDを表示（body直前で同期的に実行）
-setTimeout(() => {
-  const b = document.querySelector('meta[name="build"]');
-  const verEl = document.getElementById('ver');
-  if (verEl && b && b.content) {
-    verEl.textContent = b.content;
-  }
-}, 100);
 </script>
 </body>
 </html>
