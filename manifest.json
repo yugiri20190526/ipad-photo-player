@@ -2,7 +2,7 @@
   "name": "PhotoPlayer",
   "short_name": "PhotoPlayer",
   "description": "iPad写真アプリ風のWebアプリ。フォルダから写真・動画を選択して表示。グリッド表示、詳細ビュー、スライドショー対応。",
-  "start_url": "/",
+  "start_url": "/ipad-photo-player/",
   "display": "standalone",
   "background_color": "#0f0f0f",
   "theme_color": "#4a9eff",

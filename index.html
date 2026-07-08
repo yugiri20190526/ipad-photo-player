@@ -527,50 +527,77 @@ async function handleFileSelect(files) {
   }, 500);
 }
 
-// イベントリスナー
-document.getElementById('addBtn').addEventListener('click', () => {
-  document.getElementById('fileInput').click();
-});
+// イベントリスナー登録関数
+function setupEventListeners() {
+  const addBtn = document.getElementById('addBtn');
+  const fileInput = document.getElementById('fileInput');
+  const clearBtn = document.getElementById('clearBtn');
+  const detailClose = document.getElementById('detailClose');
+  const detailPrevBtn = document.getElementById('detailPrevBtn');
+  const detailNextBtn = document.getElementById('detailNextBtn');
+  const detailPlayBtn = document.getElementById('detailPlayBtn');
+  const detailSlideBtn = document.getElementById('detailSlideBtn');
+  const detailView = document.getElementById('detailView');
 
-document.getElementById('fileInput').addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    handleFileSelect(e.target.files);
-    e.target.value = '';
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
   }
-});
 
-document.getElementById('clearBtn').addEventListener('click', () => {
-  if (!confirm('すべて削除しますか？')) return;
-  const tx = db.transaction(STORE, 'readwrite');
-  tx.objectStore(STORE).clear();
-  tx.oncomplete = () => {
-    media = [];
-    updateGallery();
-    showToast('すべて削除しました');
-  };
-});
-
-document.getElementById('detailClose').addEventListener('click', closeDetail);
-document.getElementById('detailPrevBtn').addEventListener('click', goDetailPrev);
-document.getElementById('detailNextBtn').addEventListener('click', goDetailNext);
-document.getElementById('detailPlayBtn').addEventListener('click', () => {
-  const video = document.querySelector('#detailMedia video');
-  if (video) {
-    if (video.paused) video.play();
-    else video.pause();
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files);
+        e.target.value = '';
+      }
+    });
   }
-});
-document.getElementById('detailSlideBtn').addEventListener('click', toggleSlideShow);
 
-document.getElementById('detailView').addEventListener('click', (e) => {
-  if (e.target.id === 'detailView') closeDetail();
-});
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (!confirm('すべて削除しますか？')) return;
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => {
+        media = [];
+        updateGallery();
+        showToast('すべて削除しました');
+      };
+    });
+  }
+
+  if (detailClose) detailClose.addEventListener('click', closeDetail);
+  if (detailPrevBtn) detailPrevBtn.addEventListener('click', goDetailPrev);
+  if (detailNextBtn) detailNextBtn.addEventListener('click', goDetailNext);
+
+  if (detailPlayBtn) {
+    detailPlayBtn.addEventListener('click', () => {
+      const video = document.querySelector('#detailMedia video');
+      if (video) {
+        if (video.paused) video.play();
+        else video.pause();
+      }
+    });
+  }
+
+  if (detailSlideBtn) detailSlideBtn.addEventListener('click', toggleSlideShow);
+
+  if (detailView) {
+    detailView.addEventListener('click', (e) => {
+      if (e.target.id === 'detailView') closeDetail();
+    });
+  }
+}
 
 // 初期化
-openDB().then(() => {
-  getAllMedia().then(list => {
-    media = list;
-    updateGallery();
+document.addEventListener('DOMContentLoaded', () => {
+  setupEventListeners();
+  openDB().then(() => {
+    getAllMedia().then(list => {
+      media = list;
+      updateGallery();
+    });
   });
 });
 </script>
