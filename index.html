@@ -608,32 +608,53 @@ function handleFileSelectEvent(event) {
 }
 
 // ページロード時に初期化
-function startApp() {
+async function startApp() {
   // バージョン表示
   const verEl = document.getElementById('ver');
   const buildMeta = document.querySelector('meta[name="build"]');
-  if (verEl && buildMeta && buildMeta.content) {
+  if (verEl && buildMeta?.content) {
     verEl.textContent = buildMeta.content;
+    console.log('Version set:', buildMeta.content);
   }
 
   // イベントリスナー設定
   setupEventListeners();
 
   // DB初期化
-  openDB().then(() => {
-    getAllMedia().then(list => {
-      media = list;
-      updateGallery();
-    });
-  });
+  await openDB();
+  const list = await getAllMedia();
+  media = list;
+  updateGallery();
 }
 
+// スクリプトは HTML 最後に配置されているので、DOM は完全に読み込まれている
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', startApp);
 } else {
-  // スクリプトが最後に評価される場合は直接実行
-  startApp();
+  setTimeout(startApp, 0);
 }
 </script>
+
+<!-- 確実に実行される初期化コード -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // バージョン表示
+  const verEl = document.getElementById('ver');
+  const buildMeta = document.querySelector('meta[name="build"]');
+  if (verEl && buildMeta?.content) {
+    verEl.textContent = buildMeta.content;
+  }
+}, false);
+
+// さらに確実なフォールバック
+setTimeout(() => {
+  const verEl = document.getElementById('ver');
+  const buildMeta = document.querySelector('meta[name="build"]');
+  if (verEl && buildMeta?.content && !verEl.textContent) {
+    verEl.textContent = buildMeta.content;
+  }
+}, 100);
+</script>
+
 </body>
 </html>
