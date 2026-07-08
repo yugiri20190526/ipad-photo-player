@@ -1,0 +1,24 @@
+{
+  "name": "PhotoPlayer",
+  "short_name": "PhotoPlayer",
+  "description": "iPad写真アプリ風のWebアプリ。フォルダから写真・動画を選択して表示。グリッド表示、詳細ビュー、スライドショー対応。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#4a9eff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
