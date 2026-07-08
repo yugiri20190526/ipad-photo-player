@@ -174,7 +174,7 @@
 <div class="header">
   <h1>🖼 PhotoPlayer</h1>
   <div class="header-actions">
-    <button class="btn btn-accent" id="addBtn">
+    <button class="btn btn-accent" id="addBtn" onclick="document.getElementById('fileInput').click();">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       追加
     </button>
@@ -226,6 +226,7 @@
 <div id="ver" style="position:fixed;bottom:4px;right:8px;font-size:12px;color:#888;z-index:999;pointer-events:none;font-family:monospace;"></div>
 
 <script>
+// グローバル変数
 const DB_NAME = 'photoPlayerDB1', STORE = 'media', DB_VER = 1;
 const THUMB_VER = 1;
 const THUMB_W = 200, THUMB_H = 200;
@@ -233,6 +234,9 @@ const THUMB_Q = 0.85;
 
 let db, media = [], currentDetailIdx = -1;
 let isSlideShowRunning = false, slideShowTimer = null;
+
+// DOM要素をグローバルに保存（後で使用）
+let addBtn, fileInput, clearBtn, detailClose, detailPrevBtn, detailNextBtn, detailPlayBtn, detailSlideBtn, detailView;
 
 function openDB() {
   return new Promise((res, rej) => {
@@ -531,19 +535,25 @@ async function handleFileSelect(files) {
 
 // イベントリスナー登録関数
 function setupEventListeners() {
-  const addBtn = document.getElementById('addBtn');
-  const fileInput = document.getElementById('fileInput');
-  const clearBtn = document.getElementById('clearBtn');
-  const detailClose = document.getElementById('detailClose');
-  const detailPrevBtn = document.getElementById('detailPrevBtn');
-  const detailNextBtn = document.getElementById('detailNextBtn');
-  const detailPlayBtn = document.getElementById('detailPlayBtn');
-  const detailSlideBtn = document.getElementById('detailSlideBtn');
-  const detailView = document.getElementById('detailView');
+  addBtn = document.getElementById('addBtn');
+  fileInput = document.getElementById('fileInput');
+  clearBtn = document.getElementById('clearBtn');
+  detailClose = document.getElementById('detailClose');
+  detailPrevBtn = document.getElementById('detailPrevBtn');
+  detailNextBtn = document.getElementById('detailNextBtn');
+  detailPlayBtn = document.getElementById('detailPlayBtn');
+  detailSlideBtn = document.getElementById('detailSlideBtn');
+  detailView = document.getElementById('detailView');
 
   if (addBtn) {
     addBtn.addEventListener('click', () => {
-      fileInput.click();
+      console.log('Add button clicked');
+      if (fileInput) {
+        console.log('Clicking file input');
+        fileInput.click();
+      } else {
+        console.log('File input not found');
+      }
     });
   }
 
@@ -592,8 +602,8 @@ function setupEventListeners() {
   }
 }
 
-// 初期化
-document.addEventListener('DOMContentLoaded', () => {
+// 初期化関数
+function initApp() {
   // ビルドIDを表示
   const b = document.querySelector('meta[name="build"]');
   const verEl = document.getElementById('ver');
@@ -608,18 +618,23 @@ document.addEventListener('DOMContentLoaded', () => {
       updateGallery();
     });
   });
-});
-</script>
+}
 
-<script>
+// DOMContentLoadedまたは既にロード完了していれば実行
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
 // ビルドIDを表示（body直前で同期的に実行）
-(function () {
+setTimeout(() => {
   const b = document.querySelector('meta[name="build"]');
   const verEl = document.getElementById('ver');
   if (verEl && b && b.content) {
     verEl.textContent = b.content;
   }
-})();
+}, 100);
 </script>
 </body>
 </html>
