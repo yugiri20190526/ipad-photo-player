@@ -319,21 +319,38 @@ async function addMedia(file) {
   const thumb = await generateThumb(file);
   const type = file.type.startsWith('video/') ? 'video' : 'image';
   let duration = null;
+
   if (type === 'video') {
+    const url = URL.createObjectURL(file);
     duration = await new Promise(res => {
       const v = document.createElement('video');
-      v.src = URL.createObjectURL(file);
-      const timer = setTimeout(() => res(null), 5000);
-      v.addEventListener('loadedmetadata', () => { clearTimeout(timer); res(v.duration); });
-      v.addEventListener('error', () => { clearTimeout(timer); res(null); });
+      v.src = url;
+      const timer = setTimeout(() => {
+        try { v.pause(); v.src = ''; } catch (e) {}
+        URL.revokeObjectURL(url);
+        res(null);
+      }, 3000);
+      v.addEventListener('loadedmetadata', () => {
+        clearTimeout(timer);
+        const dur = v.duration;
+        try { v.pause(); v.src = ''; } catch (e) {}
+        URL.revokeObjectURL(url);
+        res(dur);
+      }, { once: true });
+      v.addEventListener('error', () => {
+        clearTimeout(timer);
+        URL.revokeObjectURL(url);
+        res(null);
+      }, { once: true });
     });
   }
-  return new Promise((resolve) => {
+
+  return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
     const req = tx.objectStore(STORE).add({ name: file.name, blob: file, thumb, type, duration, addedAt: Date.now() });
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => resolve(null);
-    tx.onerror = () => resolve(null);
+    req.onerror = () => { tx.abort(); };
   });
 }
 
@@ -358,36 +375,38 @@ function updateGallery() {
   });
 }
 
+let swipeStartX = 0, swipeStartY = 0;
+
+function setupSwipeHandler() {
+  const detail = document.getElementById('detailView');
+  detail.addEventListener('touchstart', handleSwipeStart, { passive: true });
+  detail.addEventListener('touchend', handleSwipeEnd, { passive: true });
+}
+
+function handleSwipeStart(e) {
+  swipeStartX = e.touches[0].clientX;
+  swipeStartY = e.touches[0].clientY;
+}
+
+function handleSwipeEnd(e) {
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+  const diffX = touchEndX - swipeStartX;
+  const diffY = touchEndY - swipeStartY;
+  const minSwipeDistance = 50;
+
+  if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+    if (diffX > 0) goDetailPrev();
+    else goDetailNext();
+  }
+}
+
 function showDetail(idx) {
   currentDetailIdx = idx;
   const detail = document.getElementById('detailView');
   detail.classList.add('show');
   renderDetailMedia();
   updateDetailCounter();
-  setupSwipeHandler();
-}
-
-function setupSwipeHandler() {
-  const detail = document.getElementById('detailView');
-  let touchStartX = 0, touchStartY = 0;
-
-  detail.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  detail.addEventListener('touchend', (e) => {
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-    const minSwipeDistance = 30;
-
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
-      if (diffX > 0) goDetailPrev();
-      else goDetailNext();
-    }
-  }, { passive: true });
 }
 
 function renderDetailMedia() {
@@ -515,6 +534,9 @@ async function init() {
     if (e.target.id === 'detailView') closeDetail();
   });
 
+  // スワイプハンドラ設定
+  setupSwipeHandler();
+
   // DB初期化とメディア読み込み
   await openDB();
   const list = await getAllMedia();
@@ -523,7 +545,7 @@ async function init() {
 }
 
 // スクリプトは HTML 最後に配置されているので、DOM は完全に読み込まれている
-init();
+init().catch(e => console.error('Init error:', e));
 </script>
 </body>
 </html>
