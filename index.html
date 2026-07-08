@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="PhotoPlayer">
-<meta name="build" content="photo-player-20260709-002443">
+<meta name="build" content="photo-player-20260709-001946">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>PhotoPlayer</title>
@@ -45,7 +45,6 @@
   .btn-danger { border-color: #ff4a4a44; color: #ff6b6b; }
   .main { display: flex; flex: 1; overflow: hidden; }
 
-  /* グリッド表示 */
   .gallery-grid {
     flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding: 12px; display: grid;
@@ -84,7 +83,6 @@
   .empty-gallery svg { margin-bottom: 12px; opacity: 0.3; }
   .empty-gallery p { font-size: 14px; line-height: 1.6; }
 
-  /* 詳細ビュー */
   .detail-view {
     position: fixed; inset: 0; z-index: 100;
     background: #000; display: none;
@@ -174,12 +172,12 @@
 <div class="header">
   <h1>🖼 PhotoPlayer</h1>
   <div class="header-actions">
-    <button class="btn btn-accent" id="addBtn" onclick="document.getElementById('fileInput').click();">
+    <button class="btn btn-accent" id="addBtn">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       追加
     </button>
     <button class="btn btn-danger" id="clearBtn">全削除</button>
-    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-m4v,video/webm" multiple onchange="handleFileSelectEvent(event)">
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-m4v,video/webm" multiple>
   </div>
 </div>
 
@@ -194,7 +192,6 @@
   </div>
 </div>
 
-<!-- 詳細ビュー -->
 <div class="detail-view" id="detailView">
   <div class="detail-header">
     <span class="detail-counter" id="detailCounter"></span>
@@ -226,26 +223,16 @@
 <div id="ver" style="position:fixed;bottom:4px;right:8px;font-size:12px;color:#888;z-index:999;pointer-events:none;font-family:monospace;"></div>
 
 <script>
-// グローバル変数
 const DB_NAME = 'photoPlayerDB1', STORE = 'media', DB_VER = 1;
-const THUMB_VER = 1;
-const THUMB_W = 200, THUMB_H = 200;
-const THUMB_Q = 0.85;
-
-let db, media = [], currentDetailIdx = -1;
-let isSlideShowRunning = false, slideShowTimer = null;
-
-// DOM要素をグローバルに保存（後で使用）
-let addBtn, fileInput, clearBtn, detailClose, detailPrevBtn, detailNextBtn, detailPlayBtn, detailSlideBtn, detailView;
+const THUMB_W = 200, THUMB_H = 200, THUMB_Q = 0.85;
+let db, media = [], currentDetailIdx = -1, isSlideShowRunning = false, slideShowTimer = null;
 
 function openDB() {
   return new Promise((res, rej) => {
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = e => {
       const d = e.target.result;
-      if (!d.objectStoreNames.contains(STORE)) {
-        d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-      }
+      if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
     };
     req.onsuccess = e => { db = e.target.result; res(); };
     req.onerror = () => rej('DB error');
@@ -257,7 +244,7 @@ function getAllMedia() {
     const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
     req.onsuccess = () => {
       const list = req.result || [];
-      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       res(list);
     };
   });
@@ -266,10 +253,7 @@ function getAllMedia() {
 function generateThumb(file) {
   return new Promise(res => {
     const type = file.type;
-    const isImage = type.startsWith('image/');
-    const isVideo = type.startsWith('video/');
-
-    if (isImage) {
+    if (type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = e => {
         const img = new Image();
@@ -278,8 +262,7 @@ function generateThumb(file) {
           c.width = THUMB_W; c.height = THUMB_H;
           const ctx = c.getContext('2d');
           ctx.imageSmoothingQuality = 'high';
-          const iw = img.width, ih = img.height;
-          const targetAR = THUMB_W / THUMB_H, srcAR = iw / ih;
+          const iw = img.width, ih = img.height, targetAR = THUMB_W / THUMB_H, srcAR = iw / ih;
           let sw, sh, sx, sy;
           if (srcAR > targetAR) { sh = ih; sw = ih * targetAR; sx = (iw - sw) / 2; sy = 0; }
           else { sw = iw; sh = iw / targetAR; sx = 0; sy = (ih - sh) / 2; }
@@ -290,82 +273,45 @@ function generateThumb(file) {
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
-    } else if (isVideo) {
+    } else if (type.startsWith('video/')) {
       const v = document.createElement('video');
-      v.muted = true; v.defaultMuted = true; v.playsInline = true;
-      v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
-      v.preload = 'auto';
-      v.style.cssText = 'position:fixed;left:-9999px;top:0;width:120px;height:68px;opacity:0.01;pointer-events:none;';
+      v.muted = true; v.style.cssText = 'position:fixed;left:-9999px;top:0;width:120px;height:68px;opacity:0;';
       document.body.appendChild(v);
-
       const url = URL.createObjectURL(file);
       v.src = url;
-
       let settled = false;
       const timer = setTimeout(() => { if (!settled && v.videoWidth) draw(); else finish(null); }, 12000);
-
       function finish(result) {
         if (settled) return; settled = true; clearTimeout(timer);
-        try { v.pause(); } catch (e) {}
-        URL.revokeObjectURL(url);
-        v.removeAttribute('src');
-        try { v.load(); } catch (e) {}
-        if (v.parentNode) v.parentNode.removeChild(v);
+        try { v.pause(); URL.revokeObjectURL(url); v.removeAttribute('src'); if (v.parentNode) v.parentNode.removeChild(v); } catch (e) {}
         res(result);
       }
-
       function draw() {
         try {
           const c = document.createElement('canvas');
           c.width = THUMB_W; c.height = THUMB_H;
-          const ctx = c.getContext('2d');
-          ctx.imageSmoothingQuality = 'high';
-          const vw = v.videoWidth, vh = v.videoHeight;
+          const ctx = c.getContext('2d'), vw = v.videoWidth, vh = v.videoHeight;
           if (vw && vh) {
             const targetAR = THUMB_W / THUMB_H, srcAR = vw / vh;
             let sw, sh, sx, sy;
             if (srcAR > targetAR) { sh = vh; sw = vh * targetAR; sx = (vw - sw) / 2; sy = 0; }
             else { sw = vw; sh = vw / targetAR; sx = 0; sy = (vh - sh) / 2; }
             ctx.drawImage(v, sx, sy, sw, sh, 0, 0, THUMB_W, THUMB_H);
-          } else {
-            ctx.drawImage(v, 0, 0, THUMB_W, THUMB_H);
-          }
+          } else ctx.drawImage(v, 0, 0, THUMB_W, THUMB_H);
           finish(c.toDataURL('image/jpeg', THUMB_Q));
         } catch (e) { finish(null); }
       }
-
       v.addEventListener('loadeddata', async () => {
-        const d = v.duration;
-        const target = (isFinite(d) && d > 0) ? Math.min(3, d * 0.1) : 0.1;
+        const d = v.duration, target = (isFinite(d) && d > 0) ? Math.min(3, d * 0.1) : 0.1;
         try { await v.play(); } catch (e) {}
         let grabbed = false;
-        const grab = () => {
-          if (grabbed) return; grabbed = true;
-          try { v.pause(); } catch (e) {}
-          requestAnimationFrame(() => requestAnimationFrame(draw));
-        };
+        const grab = () => { if (grabbed) return; grabbed = true; try { v.pause(); } catch (e) {} requestAnimationFrame(() => requestAnimationFrame(draw)); };
         v.addEventListener('seeked', grab, { once: true });
         v.addEventListener('timeupdate', () => { if (v.currentTime > 0.05) grab(); }, { once: true });
         try { v.currentTime = target; } catch (e) { grab(); }
       });
-
       v.addEventListener('error', () => finish(null));
-    } else {
-      res(null);
-    }
-  });
-}
-
-function addMediaOnce(name, blob, thumb, type, duration) {
-  return new Promise((resolve, reject) => {
-    let tx, req;
-    try {
-      tx = db.transaction(STORE, 'readwrite');
-      req = tx.objectStore(STORE).add({ name, blob, thumb, thumbVer: THUMB_VER, type, duration, addedAt: Date.now() });
-    } catch (e) { return reject(e); }
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); reject(req.error || new Error('add failed')); };
-    tx.onabort = () => reject(tx.error || new Error('transaction aborted'));
+    } else res(null);
   });
 }
 
@@ -383,58 +329,42 @@ async function addMedia(file) {
   }
   for (let attempt = 0; attempt < 5; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, 300 * attempt));
-    try { return await addMediaOnce(file.name, file, thumb, type, duration); }
-    catch (e) { }
+    try {
+      const tx = db.transaction(STORE, 'readwrite');
+      const req = tx.objectStore(STORE).add({ name: file.name, blob: file, thumb, type, duration, addedAt: Date.now() });
+      return await new Promise((res, rej) => {
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => rej(req.error);
+      });
+    } catch (e) {}
   }
   return null;
-}
-
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
 }
 
 function updateGallery() {
   const grid = document.getElementById('galleryGrid');
   const empty = document.getElementById('emptyGallery');
-
   if (media.length === 0) {
     grid.innerHTML = '';
-    grid.appendChild(empty.parentNode.replaceChild(empty.cloneNode(true), empty));
+    grid.appendChild(empty.cloneNode(true));
     return;
   }
-
   grid.innerHTML = '';
   media.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = 'gallery-item';
     const thumb = item.thumb || (item.type === 'image' ? '📷' : '🎬');
-    let html = '';
-    if (typeof thumb === 'string' && thumb.startsWith('data:')) {
-      html = `<img src="${thumb}" alt="">`;
-    } else if (item.type === 'video') {
-      html = `<video style="width:100%;height:100%;object-fit:cover;"><source src="blob:"></video><div class="play-badge">▶</div>`;
-      if (item.duration) html += `<div class="duration">${formatTime(item.duration)}</div>`;
-    } else {
-      html = `<img src="${thumb}" alt="">`;
-    }
+    let html = typeof thumb === 'string' && thumb.startsWith('data:') ? `<img src="${thumb}" alt="">` : `<img src="${thumb}" alt="">`;
+    if (item.type === 'video') html += item.duration ? `<div class="duration">${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}</div>` : '' + '<div class="play-badge">▶</div>';
     div.innerHTML = html;
     div.addEventListener('click', () => showDetail(idx));
     grid.appendChild(div);
   });
 }
 
-function formatTime(seconds) {
-  if (!seconds) return '';
-  const m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
 function showDetail(idx) {
   currentDetailIdx = idx;
-  const detail = document.getElementById('detailView');
-  detail.classList.add('show');
+  document.getElementById('detailView').classList.add('show');
   renderDetailMedia();
   updateDetailCounter();
 }
@@ -443,38 +373,28 @@ function renderDetailMedia() {
   const item = media[currentDetailIdx];
   const media_el = document.getElementById('detailMedia');
   media_el.innerHTML = '';
-
   if (!item) return;
-
   const url = URL.createObjectURL(item.blob);
   if (item.type === 'image') {
     const img = document.createElement('img');
     img.src = url;
     media_el.appendChild(img);
-  } else if (item.type === 'video') {
+  } else {
     const video = document.createElement('video');
     video.src = url;
     video.controls = true;
     video.playsinline = true;
-    video.setAttribute('webkit-playsinline', '');
     media_el.appendChild(video);
   }
 }
 
 function updateDetailCounter() {
-  const counter = document.getElementById('detailCounter');
-  counter.textContent = `${currentDetailIdx + 1} / ${media.length}`;
+  document.getElementById('detailCounter').textContent = `${currentDetailIdx + 1} / ${media.length}`;
 }
 
 function closeDetail() {
   document.getElementById('detailView').classList.remove('show');
-  stopSlideShow();
-}
-
-function goDetailPrev() {
-  currentDetailIdx = (currentDetailIdx - 1 + media.length) % media.length;
-  renderDetailMedia();
-  updateDetailCounter();
+  if (isSlideShowRunning) { isSlideShowRunning = false; if (slideShowTimer) clearInterval(slideShowTimer); }
 }
 
 function goDetailNext() {
@@ -483,26 +403,22 @@ function goDetailNext() {
   updateDetailCounter();
 }
 
-function startSlideShow() {
-  if (isSlideShowRunning) return;
-  isSlideShowRunning = true;
-  const interval = 3000; // 3秒
-  slideShowTimer = setInterval(() => {
-    goDetailNext();
-  }, interval);
-  document.getElementById('detailSlideBtn').textContent = '⏸';
-}
-
-function stopSlideShow() {
-  if (!isSlideShowRunning) return;
-  isSlideShowRunning = false;
-  if (slideShowTimer) clearInterval(slideShowTimer);
-  document.getElementById('detailSlideBtn').textContent = '▶▶';
+function goDetailPrev() {
+  currentDetailIdx = (currentDetailIdx - 1 + media.length) % media.length;
+  renderDetailMedia();
+  updateDetailCounter();
 }
 
 function toggleSlideShow() {
-  if (isSlideShowRunning) stopSlideShow();
-  else startSlideShow();
+  if (isSlideShowRunning) {
+    isSlideShowRunning = false;
+    if (slideShowTimer) clearInterval(slideShowTimer);
+    document.getElementById('detailSlideBtn').textContent = '▶▶';
+  } else {
+    isSlideShowRunning = true;
+    slideShowTimer = setInterval(goDetailNext, 3000);
+    document.getElementById('detailSlideBtn').textContent = '⏸';
+  }
 }
 
 async function handleFileSelect(files) {
@@ -517,110 +433,67 @@ async function handleFileSelect(files) {
     label.textContent = files[i].name;
     fill.style.width = ((i / files.length) * 100) + '%';
     pct.textContent = Math.floor((i / files.length) * 100) + '%';
-
     const id = await addMedia(files[i]);
     if (id) added++;
   }
 
   fill.style.width = '100%';
   pct.textContent = '100%';
-
   setTimeout(() => {
     overlay.classList.remove('show');
-    media = await getAllMedia();
-    updateGallery();
-    if (added > 0) showToast(`${added}件追加しました`);
+    getAllMedia().then(list => {
+      media = list;
+      updateGallery();
+      if (added > 0) {
+        const el = document.getElementById('toast');
+        el.textContent = `${added}件追加しました`;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 2000);
+      }
+    });
   }, 500);
 }
 
-// イベントリスナー登録関数
-function setupEventListeners() {
-  addBtn = document.getElementById('addBtn');
-  fileInput = document.getElementById('fileInput');
-  clearBtn = document.getElementById('clearBtn');
-  detailClose = document.getElementById('detailClose');
-  detailPrevBtn = document.getElementById('detailPrevBtn');
-  detailNextBtn = document.getElementById('detailNextBtn');
-  detailPlayBtn = document.getElementById('detailPlayBtn');
-  detailSlideBtn = document.getElementById('detailSlideBtn');
-  detailView = document.getElementById('detailView');
-
-  if (addBtn) {
-    addBtn.addEventListener('click', () => {
-      if (fileInput) {
-        fileInput.click();
-      }
-    });
-  }
-
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        handleFileSelect(e.target.files);
-        e.target.value = '';
-      }
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      if (!confirm('すべて削除しますか？')) return;
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).clear();
-      tx.oncomplete = () => {
-        media = [];
-        updateGallery();
-        showToast('すべて削除しました');
-      };
-    });
-  }
-
-  if (detailClose) detailClose.addEventListener('click', closeDetail);
-  if (detailPrevBtn) detailPrevBtn.addEventListener('click', goDetailPrev);
-  if (detailNextBtn) detailNextBtn.addEventListener('click', goDetailNext);
-
-  if (detailPlayBtn) {
-    detailPlayBtn.addEventListener('click', () => {
-      const video = document.querySelector('#detailMedia video');
-      if (video) {
-        if (video.paused) video.play();
-        else video.pause();
-      }
-    });
-  }
-
-  if (detailSlideBtn) detailSlideBtn.addEventListener('click', toggleSlideShow);
-
-  if (detailView) {
-    detailView.addEventListener('click', (e) => {
-      if (e.target.id === 'detailView') closeDetail();
-    });
-  }
-}
-
-// 初期化関数
-// File Input の change イベントハンドラ
-function handleFileSelectEvent(event) {
-  if (event.target.files.length > 0) {
-    handleFileSelect(event.target.files);
-    event.target.value = '';
-  }
-}
-
-// ページロード時に初期化
-async function startApp() {
+// 初期化
+async function init() {
   // バージョン表示
-  const verEl = document.getElementById('ver');
   const buildMeta = document.querySelector('meta[name="build"]');
-  if (verEl && buildMeta?.content) {
-    verEl.textContent = buildMeta.content;
-    console.log('Version set:', buildMeta.content);
-  }
+  if (buildMeta?.content) document.getElementById('ver').textContent = buildMeta.content;
 
-  // イベントリスナー設定
-  setupEventListeners();
+  // イベントリスナー
+  document.getElementById('addBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+  document.getElementById('fileInput').addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      handleFileSelect(e.target.files);
+      e.target.value = '';
+    }
+  });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!confirm('すべて削除しますか？')) return;
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = () => {
+      media = [];
+      updateGallery();
+      const el = document.getElementById('toast');
+      el.textContent = 'すべて削除しました';
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2000);
+    };
+  });
+  document.getElementById('detailClose').addEventListener('click', closeDetail);
+  document.getElementById('detailPrevBtn').addEventListener('click', goDetailPrev);
+  document.getElementById('detailNextBtn').addEventListener('click', goDetailNext);
+  document.getElementById('detailPlayBtn').addEventListener('click', () => {
+    const video = document.querySelector('#detailMedia video');
+    if (video) video.paused ? video.play() : video.pause();
+  });
+  document.getElementById('detailSlideBtn').addEventListener('click', toggleSlideShow);
+  document.getElementById('detailView').addEventListener('click', (e) => {
+    if (e.target.id === 'detailView') closeDetail();
+  });
 
-  // DB初期化
+  // DB初期化とメディア読み込み
   await openDB();
   const list = await getAllMedia();
   media = list;
@@ -628,33 +501,7 @@ async function startApp() {
 }
 
 // スクリプトは HTML 最後に配置されているので、DOM は完全に読み込まれている
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startApp);
-} else {
-  setTimeout(startApp, 0);
-}
+init();
 </script>
-
-<!-- 確実に実行される初期化コード -->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  // バージョン表示
-  const verEl = document.getElementById('ver');
-  const buildMeta = document.querySelector('meta[name="build"]');
-  if (verEl && buildMeta?.content) {
-    verEl.textContent = buildMeta.content;
-  }
-}, false);
-
-// さらに確実なフォールバック
-setTimeout(() => {
-  const verEl = document.getElementById('ver');
-  const buildMeta = document.querySelector('meta[name="build"]');
-  if (verEl && buildMeta?.content && !verEl.textContent) {
-    verEl.textContent = buildMeta.content;
-  }
-}, 100);
-</script>
-
 </body>
 </html>
