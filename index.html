@@ -354,21 +354,29 @@ async function addMedia(file) {
   });
 }
 
+const EMPTY_GALLERY_HTML = `
+    <div class="empty-gallery" id="emptyGallery">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <p>写真・動画を追加してください<br>複数選択に対応しています</p>
+    </div>`;
+
 function updateGallery() {
   const grid = document.getElementById('galleryGrid');
-  const empty = document.getElementById('emptyGallery');
   if (media.length === 0) {
-    grid.innerHTML = '';
-    grid.appendChild(empty.cloneNode(true));
+    grid.innerHTML = EMPTY_GALLERY_HTML;
     return;
   }
   grid.innerHTML = '';
   media.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = 'gallery-item';
-    const thumb = item.thumb || (item.type === 'image' ? '📷' : '🎬');
-    let html = typeof thumb === 'string' && thumb.startsWith('data:') ? `<img src="${thumb}" alt="">` : `<img src="${thumb}" alt="">`;
-    if (item.type === 'video') html += item.duration ? `<div class="duration">${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}</div>` : '' + '<div class="play-badge">▶</div>';
+    let html = item.thumb ? `<img src="${item.thumb}" alt="">` : '';
+    if (item.type === 'video') {
+      html += '<div class="play-badge">▶</div>';
+      if (item.duration) html += `<div class="duration">${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}</div>`;
+    }
     div.innerHTML = html;
     div.addEventListener('click', () => showDetail(idx));
     grid.appendChild(div);
@@ -504,10 +512,11 @@ async function init() {
   // イベントリスナー
   document.getElementById('addBtn').addEventListener('click', () => document.getElementById('fileInput').click());
   document.getElementById('fileInput').addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-      handleFileSelect(e.target.files);
-      e.target.value = '';
-    }
+    // e.target.files は live FileList のため、value をクリアすると中身が消える。
+    // 先に配列へコピーしてから input をリセットする
+    const files = Array.from(e.target.files);
+    e.target.value = '';
+    if (files.length > 0) handleFileSelect(files);
   });
   document.getElementById('clearBtn').addEventListener('click', () => {
     if (!confirm('すべて削除しますか？')) return;
